@@ -1,7 +1,6 @@
 /00-WorkSpace
 /bin
 /data
-/R_Markdown.Rmd
-output/YouTube_View_History.csv
-src/기본.java
+/output
+output/youtube_view_history.csv
 output/youtube_view_history_with_post.csv
