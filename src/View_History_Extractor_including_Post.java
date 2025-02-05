@@ -145,9 +145,11 @@ public final class View_History_Extractor_including_Post {
              */
             if (result.contains("youtube.com/post/")) { // if post view history
                 result = titleFilter(in);
+                result = result.replace(',', '_');  // To avoid wrong separation while making csv
+                result = result.replace('/', '\\');
                 result = result.replaceAll("\n",  "");
                 if (result.length() >= 30) {
-                    result = result.substring(0, 30); // maximum length limit = 30
+                    result = "POST:" + result.substring(0, 30); // maximum length limit = 30
                 }
             } else {
                 result = titleFilter(in);
@@ -179,6 +181,7 @@ public final class View_History_Extractor_including_Post {
             }
             result = result.replace(',', '_');
             result = result.replace('/', '\\');
+            result = result.replaceAll("\n",  "");
             channelLink.enqueue(result);
             /*
              * Extract channel name
