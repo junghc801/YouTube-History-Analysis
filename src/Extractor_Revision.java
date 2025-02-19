@@ -16,17 +16,20 @@ import components.simplewriter.SimpleWriter1L;
  *
  * @author Haechan Jung
  */
-public final class Extractor_Revision() {
+public final class Extractor_Revision {
 
     /**
      * No argument constructor--private to prevent instantiation.
      */
     private Extractor_Revision() {
     }
-
-    private static final DateFormat oldFormat = new SimpleDateFormat(
+    private static final String DELETED = "Deleted_or_Disclosed";
+    private static final String POST = "music.youtube.com/";
+    private static final String MUSIC = "youtube.com/post/";
+    private static final String IS_DELETED = "youtube.com/watch";
+    private static final DateFormat OLD_FORMAT = new SimpleDateFormat(
         "yyyy. MM. dd. a hh:mm:ss z", Locale.KOREA);
-    private static final SimpleDateFormat newFormat = new SimpleDateFormat(
+    private static final SimpleDateFormat NEW_FORMAT = new SimpleDateFormat(
         "yyyy-MM-dd HH:mm:ss");
 
     private static String timeFilter(SimpleReader in) {
@@ -56,8 +59,8 @@ public final class Extractor_Revision() {
                     if (div.equals("</div>")) {
                         Date date;
                         try {
-                            date = oldFormat.parse(time);
-                            result = newFormat.format(date);
+                            date = OLD_FORMAT.parse(time);
+                            result = NEW_FORMAT.format(date);
                         } catch (ParseException e) {
                             e.printStackTrace();
                         }
@@ -119,45 +122,106 @@ public final class Extractor_Revision() {
         }
         return result;
     }
+    private static boolean checkIf_good(String result){
+        if (result.length() == 0) return false;
+        if (result.contains(MUSIC) || 
+            result.contains(POST) ) {   // Exclude music video history
+            // timeFilter(in);
+            // continue;
+        }
+        return false;
+    }
 
+    private static String extract_video_link (SimpleReader in){
+        String link;
+        link = linkFilter(in);
+        if (checkIf_good(link)) return null;
+        return link;
+    }
+
+    private static String extract_video_title (SimpleReader in){
+        String title;
+        
+        return title;
+    }
+
+    private static String extract_channel_name (SimpleReader in){
+        String name;
+        
+        return name;
+    }
+
+    private static String extract_channel_link (SimpleReader in){
+        String link;
+        
+        return link;
+    }
+
+    private static String extract_viewing_time (SimpleReader in){
+        String time;
+        
+        return time;
+    }
+
+    private static void reset_process(SimpleReader in)
+    {
+        timeFilter(in);
+    }
+
+    private static boolean checkIF_deleted(String result, SimpleReader in){
+        if (result.contains(IS_DELETED) { // if deleted or undisclosed video 
+            title.enqueue(DELETED);
+            channelLink.enqueue(DELETED);
+            channelName.enqueue(DELETED);
+            result = timeFilter(in);
+            if (result.length() < 1) {
+                break;
+            }
+            time.enqueue(result);
+            continue;
+        }
+    }
+    
     private static void dataCleaning(SimpleReader in, Queue<String> link,
             Queue<String> title, Queue<String> channelLink,
             Queue<String> channelName, Queue<String> time) {
+
+        
+        
+        result = extract_video_title(in);
+        result = extract_channel_name(in);
+        result = extract_channel_link(in);
+        result = extract_viewing_time(in);
 
         while (!in.atEOS()) {
             /*
              * Extract video link
              */
-            String result = linkFilter(in);
-            if (result.contains("music.youtube.com/") || result.contains("youtube.com/post/") ) {   // Exclud music video history
-                timeFilter(in);
+            String result = extract_video_link(in);
+            if (!checkIf_good(result)) {
+                reset_process(in);
                 continue;
-            }
-            if (result.length() < 1) {
-                break;
-            }
+            }   
             link.enqueue(result);
-            boolean testing = false;
-            if (result.equals("https://www.youtube.com/watch?v=0kcWOsa0k7U")) testing = true;// ====================
             /*
              * Extract video title
              */
             result = titleFilter(in);
-            if (result.contains("youtube.com/watch")) { // if deleted or undisclosed video 
-                title.enqueue("unknown");
-                channelLink.enqueue("unknown");
-                channelName.enqueue("unknown");
-                result = timeFilter(in);
-                if (result.length() < 1) {
-                    break;
+            boolean isDeleted = checkIF_deleted(result){
+                if (result.contains("youtube.com/watch")) { // if deleted or undisclosed video 
+                    title.enqueue("unknown");
+                    channelLink.enqueue("unknown");
+                    channelName.enqueue("unknown");
+                    result = timeFilter(in);
+                    if (result.length() < 1) {
+                        break;
+                    }
+                    time.enqueue(result);
+                    continue;
                 }
-                time.enqueue(result);
-                continue;
             }
-            if (result.length() < 1) {
-                break;
-            }
-            if (testing) System.out.println(result);
+            
+            data_
             result = result.replace(',', '_');  // To avoid wrong separation while making csv
             result = result.replace('/', '\\');
             result = result.replaceAll("\n",  "");
@@ -166,9 +230,7 @@ public final class Extractor_Revision() {
              * Extract channel link
              */
             result = linkFilter(in);
-            if (result.length() < 1) {
-                break;
-            }
+
             result = result.replace(',', '_');
             result = result.replace('/', '\\');
             result = result.replaceAll("\n",  "");
@@ -177,9 +239,7 @@ public final class Extractor_Revision() {
              * Extract channel name
              */
             result = titleFilter(in);
-            if (result.length() < 1) {
-                break;
-            }
+
             result = result.replace(',', '_');
             result = result.replace('/', '\\');
             result = result.replaceAll("\n",  "");
@@ -188,15 +248,13 @@ public final class Extractor_Revision() {
              * Extract channel time
              */
             result = timeFilter(in);
-            if (result.length() < 1) {
-                break;
-            }
+
             time.enqueue(result);
         }
 
     }
 
-    private static void dataFraming(SimpleWriter out, Queue<String> link,
+    private static void make_csv(SimpleWriter out, Queue<String> link,
             Queue<String> title, Queue<String> channelLink,
             Queue<String> channelName, Queue<String> time) {
         assert link.length() == time
@@ -236,7 +294,7 @@ public final class Extractor_Revision() {
          */
         String folder = "output"; 
         SimpleWriter out = new SimpleWriter1L(folder + "/youtube_view_history.csv");
-        dataFraming(out, link, title, channelLink, channelName, time); // print data into text file
+        make_csv(out, link, title, channelLink, channelName, time); // print data into text file
         /*
          * Close input and output streams
          */
