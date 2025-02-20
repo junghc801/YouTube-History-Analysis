@@ -23,6 +23,7 @@ public final class Extractor_Revision {
      */
     private Extractor_Revision() {
     }
+
     private static final String DELETED = "Deleted_or_Disclosed";
     private static final String POST = "music.youtube.com/";
     private static final String MUSIC = "youtube.com/post/";
@@ -31,6 +32,11 @@ public final class Extractor_Revision {
         "yyyy. MM. dd. a hh:mm:ss z", Locale.KOREA);
     private static final SimpleDateFormat NEW_FORMAT = new SimpleDateFormat(
         "yyyy-MM-dd HH:mm:ss");
+
+    private static int YEAR = 2024;
+    private static final String DATA_YEAR1 = YEAR + ". ";
+    private static final String DATA_YEAR2 = (YEAR + 1) + ". ";
+    private static final String TIME_ZONE = "KST";
 
     private static String timeFilter(SimpleReader in) {
         boolean done = false;
@@ -44,8 +50,8 @@ public final class Extractor_Revision {
                 /*
                  * ===================NEED TO BE MODIFIED IF NECESSARY===================
                  */
-                if (time.equals("2024. ") || time.equals("2025. ")) { 
-                    while (!time.contains("KST")) {
+                if (time.equals(DATA_YEAR1) || time.equals(DATA_YEAR2)) { 
+                    while (!time.contains(TIME_ZONE)) {
                         time += in.read();
                     }
                     /*
