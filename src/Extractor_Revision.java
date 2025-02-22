@@ -1,6 +1,7 @@
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+
 import java.util.Date;
 import java.util.Locale;
 
@@ -8,6 +9,8 @@ import javax.print.FlavorException;
 
 import components.queue.Queue;
 import components.queue.Queue1L;
+import components.sequence.Sequence;
+import components.sequence.Sequence1L;
 import components.simplereader.SimpleReader;
 import components.simplereader.SimpleReader1L;
 import components.simplewriter.SimpleWriter;
@@ -26,6 +29,12 @@ public final class Extractor_Revision {
     private Extractor_Revision() {
     }
     
+    private static final int VID_LINK = 0;
+    private static final int VID_TITLE = 1;
+    private static final int CHN_LINK = 2;
+    private static final int CHN_NAME = 3;
+    private static final int VIW_TIME = 4;
+
     private static final String FAIL_STRING = "";
 
     private static final String DELETED = "Deleted_or_Disclosed";
@@ -104,7 +113,7 @@ public final class Extractor_Revision {
                 }
             }   
         }
-        return FAIL_STRING;
+        return result;
     }
 
     private static String linkFilter(SimpleReader in) {
@@ -163,66 +172,63 @@ public final class Extractor_Revision {
         return false;
     }
 
-    private static String extract_video_link (SimpleReader in){
-        String link;
-        link = linkFilter(in);
-        if (checkIf_good(link)) return null;
-        return link;
+    private static boolean extract_video_link (SimpleReader in, Queue<String> link){
+        String vid_link = linkFilter(in);
+        boolean end_of_stream = vid_link.equals(FAIL_STRING);
+        if (end_of_stream) return false; // if read everything;
+        link.enqueue(vid_link);          // if not yet
+        return true;
     }
 
-    private static String extract_video_title (SimpleReader in){
-        String title = FAIL_STRING;
-        
-        return title;
+    private static boolean extract_video_title (SimpleReader in, Queue<String> title, 
+                                            Sequence<Queue<String>> view_history){
+        String vid_title = titleFilter(in);
+        boolean end_of_stream = vid_title.equals(FAIL_STRING);
+        if (end_of_stream) return false; // if read everything;
+        if (vid_title.contains(IS_DELETED)) deleted_case(vid_title, in, view_history);
+        return true;
     }
 
-    private static String extract_channel_name (SimpleReader in){
+    private static boolean extract_channel_name (SimpleReader in){
         String name = FAIL_STRING;
         
-        return name = FAIL_STRING;
+        return true;
     }
 
-    private static String extract_channel_link (SimpleReader in){
+    private static boolean extract_channel_link (SimpleReader in){
         String link;
         
-        return link  = FAIL_STRING;
+        return true;
     }
 
-    private static String extract_viewing_time (SimpleReader in){
-        String time;
-        
-        return time = FAIL_STRING;
-    }
-
-    private static void reset_process(SimpleReader in)
-    {
-        timeFilter(in);
-    }
-
-    private static boolean checkIF_deleted(String result, SimpleReader in){
-        if (result.contains(IS_DELETED)) { // if deleted or undisclosed video 
-            title.enqueue(DELETED);
-            channelLink.enqueue(DELETED);
-            channelName.enqueue(DELETED);
-            result = timeFilter(in);
-            if (result.length() < 1) {
-                break;
-            }
-            time.enqueue(result);
-            continue;
-        }
+    private static boolean extract_viewing_time (SimpleReader in, Queue<String> time_queue){
+        String time = timeFilter(in);
+        if (!time.equals(FAIL_STRING)) time_queue.enqueue(time);
+        return !time.equals(FAIL_STRING);
     }
     
-    private static void dataCleaning(SimpleReader in, Queue<String> link,
-            Queue<String> title, Queue<String> channelLink,
-            Queue<String> channelName, Queue<String> time) {
+    // action if watched video is deleted or disclosed
+    private static void deleted_case(String result, SimpleReader in, Sequence<Queue<String>> view_history){
+        view_history.entry(VID_TITLE).enqueue(DELETED);
+        view_history.entry(CHN_LINK).enqueue(DELETED);
+        view_history.entry(CHN_NAME).enqueue(DELETED);
+        extract_viewing_time(in, view_history.entry(VIW_TIME));
+    }
+    
+    private static void dataCleaning(SimpleReader in, Sequence<Queue<String>> view_history) {
 
         
+        // break if end of input stream
+        while (!in.atEOS())
+        {
+            if (extract_video_link(in, view_history.entry(VID_LINK))) break;
+            if (extract_video_title(in,view_history.entry(VID_TITLE), 
+                                             view_history.entry(VID_LINK))) break;
+            if (extract_channel_link(in, view_history.entry(CHN_LINK))) break;
+            if (extract_channel_name(in, view_history.entry(CHN_NAME))) break;
+            if (extract_viewing_time(in, view_history.entry(VIW_TIME))) break;
+        }
         
-        result = extract_video_title(in);
-        result = extract_channel_name(in);
-        result = extract_channel_link(in);
-        result = extract_viewing_time(in);
 
         while (!in.atEOS()) {
             /*
@@ -275,31 +281,44 @@ public final class Extractor_Revision {
             result = result.replace('/', '\\');
             result = result.replaceAll("\n",  "");
             channelName.enqueue(result);
-            /*
-             * Extract channel time
-             */
-            result = timeFilter(in);
-
-            time.enqueue(result);
+            // /*
+            //  * Extract channel time
+            //  */
+            // result = timeFilter(in);
+            // if (!result.equals(FAIL_STRING)) time.enqueue(result);
+            
         }
 
     }
 
-    private static void make_csv(SimpleWriter out, Queue<String> link,
-            Queue<String> title, Queue<String> channelLink,
-            Queue<String> channelName, Queue<String> time) {
-        assert link.length() == time
+    private static void make_csv(SimpleWriter out, Sequence<Queue<String>> view_history) {
+        assert view_history.entry(VID_LINK).length() == view_history.entry(VIW_TIME)
                 .length() : "Violation of: two queues have correponding data";
 
         out.println("video_link,video_title,channel_link,channel_name,viewing_time"); // column names
-        while (link.length() > 0) {
-            out.print(link.dequeue() + ",");
-            out.print(title.dequeue() + ",");
-            out.print(channelLink.dequeue() + ",");
-            out.print(channelName.dequeue() + ",");
-            out.println(time.dequeue());
+        while (view_history.entry(VID_LINK).length() > 0) {
+            out.print(view_history.entry(VID_LINK).dequeue() + ",");
+            out.print(view_history.entry(VID_TITLE).dequeue() + ",");
+            out.print(view_history.entry(CHN_LINK).dequeue() + ",");
+            out.print(view_history.entry(CHN_NAME).dequeue() + ",");
+            out.println(view_history.entry(VIW_TIME).dequeue());
         }
 
+    }
+
+    private static void assign_queues(Sequence<Queue<String>> view_history)
+    {
+        // 0: youtube video link
+        // 1: youtube video title
+        // 2: youtube channel name
+        // 3: youtube channel name
+        // 4: viewing time
+        final int FIVE = 5;
+        for (int i = 0; i < FIVE; i++)
+        {
+            view_history.add(i, new Queue1L<String>());
+        }
+        
     }
 
     /**
@@ -313,19 +332,18 @@ public final class Extractor_Revision {
          * ====================NEED TO BE REPLACED====================
          */
         SimpleReader in = new SimpleReader1L("data/시청 기록.html"); 
-        Queue<String> link = new Queue1L<>();           // youtube video link
-        Queue<String> title = new Queue1L<>();          // youtube video title
-        Queue<String> channelLink = new Queue1L<>();    // youtube channel name
-        Queue<String> channelName = new Queue1L<>();    // youtube channel name
-        Queue<String> time = new Queue1L<>();           // viewing time
+        
+        // initialization of data storage
+        Sequence<Queue<String>> view_history = new Sequence1L();
+        assign_queues(view_history);
 
-        dataCleaning(in, link, title, channelLink, channelName, time); // extract youtube data
+        dataCleaning(in, view_history); // extract youtube data
         /*
          * ====================NEED TO BE REPLACED====================
          */
         String folder = "output"; 
         SimpleWriter out = new SimpleWriter1L(folder + "/youtube_view_history.csv");
-        make_csv(out, link, title, channelLink, channelName, time); // print data into text file
+        make_csv(out, view_history); // print data into text file
         /*
          * Close input and output streams
          */
