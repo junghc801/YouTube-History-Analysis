@@ -4,6 +4,8 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 
+import javax.print.FlavorException;
+
 import components.queue.Queue;
 import components.queue.Queue1L;
 import components.simplereader.SimpleReader;
@@ -23,63 +25,86 @@ public final class Extractor_Revision {
      */
     private Extractor_Revision() {
     }
+    
+    private static final String FAIL_STRING = "";
 
     private static final String DELETED = "Deleted_or_Disclosed";
     private static final String POST = "music.youtube.com/";
     private static final String MUSIC = "youtube.com/post/";
     private static final String IS_DELETED = "youtube.com/watch";
+    private static final String HTML_DIV = "</div>";
     private static final DateFormat OLD_FORMAT = new SimpleDateFormat(
         "yyyy. MM. dd. a hh:mm:ss z", Locale.KOREA);
     private static final SimpleDateFormat NEW_FORMAT = new SimpleDateFormat(
         "yyyy-MM-dd HH:mm:ss");
 
+    // ===================NEED TO BE MODIFIED IF NECESSARY===================
     private static int YEAR = 2024;
     private static final String DATA_YEAR1 = YEAR + ". ";
     private static final String DATA_YEAR2 = (YEAR + 1) + ". ";
     private static final String TIME_ZONE = "KST";
 
-    private static String timeFilter(SimpleReader in) {
-        boolean done = false;
-        
-        String result = "";
-        while (!in.atEOS() && !done) {
-            String time;
+    private static String read_potential_time(SimpleReader in)
+    {
+        String time = "";
+        while (!in.atEOS())
+        {
             char chr = in.read();
-            if (chr == '2') {
-                time = "2" + in.read() + in.read() + in.read() + in.read() + in.read();
-                /*
-                 * ===================NEED TO BE MODIFIED IF NECESSARY===================
-                 */
-                if (time.equals(DATA_YEAR1) || time.equals(DATA_YEAR2)) { 
-                    while (!time.contains(TIME_ZONE)) {
-                        time += in.read();
-                    }
-                    /*
-                     * Check if following is </div>
-                     */
-                    String div = "";
-                    final int six = 6;
-                    for (int i = 0; i < six; i++) {
-                        div += in.read();
-                    }
-                    if (div.equals("</div>")) {
-                        Date date;
-                        try {
-                            date = OLD_FORMAT.parse(time);
-                            result = NEW_FORMAT.format(date);
-                        } catch (ParseException e) {
-                            e.printStackTrace();
-                        }
-                        done = true;
-                    }
-
-                }
+            if (chr == '2')
+            {
+                time = ("2" + in.read() + in.read() + 
+                            in.read() + in.read() + in.read()); // "2025. " expected
             }
-        }
-        if (done) {
-            return result;
+            if (time.equals(DATA_YEAR1) || time.equals(DATA_YEAR2)) {
+                // Extract 2024. 01......KST for example
+                while (!time.contains(TIME_ZONE)) { time += in.read();}
+                return time;
+            }
+
         }
         return "";
+        
+    }
+    private static String time_formatting(String time)
+    {
+        String result = FAIL_STRING;
+        Date date;
+        // Time formattting
+        try 
+        {
+            date = OLD_FORMAT.parse(time);
+            result = NEW_FORMAT.format(date);
+        } 
+        catch (ParseException e) 
+        {
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+    private static String timeFilter(SimpleReader in) {
+        final int six = 6;
+
+        String result = FAIL_STRING;
+        while (!in.atEOS()) 
+        {
+            String time = read_potential_time(in);
+            if (!time.equals(FAIL_STRING))
+            {
+                /*
+                 * Second validation: check if following is </div>;
+                 * meaning truly found the time data 
+                 */
+                String div = "";
+                for (int i = 0; i < six; i++) { div += in.read(); }
+                if (div.equals(HTML_DIV)) 
+                {
+                    result = time_formatting(time);
+                    break;
+                }
+            }   
+        }
+        return FAIL_STRING;
     }
 
     private static String linkFilter(SimpleReader in) {
@@ -146,27 +171,27 @@ public final class Extractor_Revision {
     }
 
     private static String extract_video_title (SimpleReader in){
-        String title;
+        String title = FAIL_STRING;
         
         return title;
     }
 
     private static String extract_channel_name (SimpleReader in){
-        String name;
+        String name = FAIL_STRING;
         
-        return name;
+        return name = FAIL_STRING;
     }
 
     private static String extract_channel_link (SimpleReader in){
         String link;
         
-        return link;
+        return link  = FAIL_STRING;
     }
 
     private static String extract_viewing_time (SimpleReader in){
         String time;
         
-        return time;
+        return time = FAIL_STRING;
     }
 
     private static void reset_process(SimpleReader in)
@@ -175,7 +200,7 @@ public final class Extractor_Revision {
     }
 
     private static boolean checkIF_deleted(String result, SimpleReader in){
-        if (result.contains(IS_DELETED) { // if deleted or undisclosed video 
+        if (result.contains(IS_DELETED)) { // if deleted or undisclosed video 
             title.enqueue(DELETED);
             channelLink.enqueue(DELETED);
             channelName.enqueue(DELETED);
