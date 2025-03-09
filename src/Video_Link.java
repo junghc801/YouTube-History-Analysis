@@ -51,8 +51,8 @@ public class Video_Link {
     {
         if (result.equals(FAIL_STRING)) return false;
         // Exclude music video history
-        if (result.contains(MUSIC)) return false;
-        // annotate if want to store viewing post history
+        // if (result.contains(MUSIC)) return false;
+        // annotate below if want to store viewing post history
         // if (result.contains(POST)) return false; 
         return true;
     }

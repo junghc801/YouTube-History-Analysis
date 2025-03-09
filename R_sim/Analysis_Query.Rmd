@@ -1,0 +1,97 @@
+---
+title: "Untitled"
+author: "Haechan Jung"
+date: "2024-12-22"
+output: pdf_document
+---
+1. Data collection and preparation = {Data Collection / check Null & Outlier / 
+                                      Data type transformation } = data preprocessing
+                                      
+2. Data overview = check data size, variables, data types. understand overall data
+
+3. Data visualization = histogram/scatter plot/box plot. 
+                        Check data distribution and characteristics
+4. Descriptive statistics = mean / median / standard deviation => tendency & variability
+
+5. Correlaiton analysis = relationships btw variables; check independencies
+
+6. Pattern discovery = various perspectives to uncover patterns => new hypotheses.
+
+7. Interpretation and sharing = interprets the result of EDA and share them with others
+                                to guid the data analysis direction.
+
+
+```{r message = FALSE, warning=FALSE}
+library(alr4)
+library(tidyverse)
+library(readr)
+library(dplyr)
+library(dbplyr)
+library(DBI)
+library(RSQLite)
+```
+```{r message = FALSE, warning=FALSE}
+view_history = read_csv("C:/Users/user/OneDrive/바탕 화면/프로젝트/YouTube-View-History/datasets/YouTube_View_History_Modified.csv", locale = locale(encoding = "EUC-KR"), col_types = cols(your_time_column = col_datetime("%Y-%m-%d %H:%M:%S")))
+view_history
+```
+
+```{r}
+conn = src_memdb()
+
+conn_isolated = conn$con
+copy_to(conn, view_history, overwrite = TRUE)
+# 가장 많은 영상을 본 채널 목록.csv
+df = tbl(conn, sql("SELECT channel_name
+                    , COUNT(DISTINCT video_link) AS cnts
+                    , channel_link
+               FROM view_history
+               GROUP BY channel_link
+               ORDER BY cnts DESC"))
+# check if null value exists
+sum(is.na(view_history$viewing_time)) 
+write.csv(df, "C:/Users/user/OneDrive/바탕 화면/프로젝트/YouTube-View-History/datasets/YouTube_Channels.csv")
+```
+```{r}
+# print if it is NULL value
+for (i in 1:length(view_history$video_link)) {
+  if (is.na(view_history$viewing_time[i])) {
+    print(view_history$video_link[i])
+    print(view_history$video_title[i])
+    print(view_history$channel_link[i])
+    print(view_history$channel_name[i])
+    print(view_history$viewing_time[i])
+    print("====================================")
+  }
+}
+```
+
+
+```{sql connection=conn_isolated}
+-- all_cnts = 전체 동영상 수
+-- all_distinct_cnts = 시청한 개별적인 동영상 수
+SELECT COUNT(video_link) AS all_cnts
+    ,  COUNT(DISTINCT video_link) as all_distinct_cnts
+FROM view_history
+```
+
+```{sql connection=conn_isolated}
+-- 
+SELECT channel_name
+     , COUNT(DISTINCT video_link) as cnts
+     , channel_link
+FROM view_history
+WHERE channel_name IS NOT 'unknown' -- 영상 제거 or 비공개 영상의 경우 제외외
+GROUP BY channel_link
+ORDER BY cnts DESC
+```
+```{sql connection=conn_isolated}
+SELECT *
+FROM view_history
+WHERE viewing_time >= '2024-12-21 23:59:59'
+LIMIT 300
+```
+
+```{r}
+summary(view_history)
+```
+

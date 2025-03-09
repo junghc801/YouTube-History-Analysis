@@ -16,7 +16,7 @@ public class Video_Title {
     private static final int CHN_NAME = 3;
     private static final int VIW_TIME = 4;
 
-    private static final int UPPER_LIMIT = 30;
+    private static final int UPPER_LIMIT = 60;
 
     private static final String FAIL_STRING = "";   // Fail to read
 
@@ -55,12 +55,6 @@ public class Video_Title {
 
     public static boolean extract_video_title (SimpleReader in, Sequence<Queue<String>> view_history) 
     {
-        Queue<String> vid_link = view_history.entry(VID_LINK);
-
-        // check if it is post visiting data
-        vid_link.rotate(-1);
-        boolean is_post = vid_link.front().contains(POST); //
-        vid_link.rotate(1);
         String vid_title = vid_title_filter(in);
         boolean end_of_stream = vid_title.equals(FAIL_STRING);
         if (end_of_stream) return false; // if everything read
@@ -70,16 +64,14 @@ public class Video_Title {
             return false;
         }
 
-        vid_title = Extractor_Revision.data_adjustment(vid_title);
-        if (is_post)
+        
+        if (vid_title.length() >= UPPER_LIMIT) 
         {
-            if (vid_title.length() >= UPPER_LIMIT) 
-            {
-                // maximum length limit = 30
-                // upper limit can be adjusted
-                vid_title = vid_title.substring(0, UPPER_LIMIT); 
-            }
+            // maximum length limit = 60
+            // upper limit can be adjusted
+            vid_title = vid_title.substring(0, UPPER_LIMIT); 
         }
+        vid_title = View_history_extractor.data_adjustment(vid_title);
         view_history.entry(VID_TITLE).enqueue(vid_title);       
         return true;
     }

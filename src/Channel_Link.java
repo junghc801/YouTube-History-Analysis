@@ -14,7 +14,7 @@ public class Channel_Link {
     private static final String CHANNEL = "youtube.com/channel/";
 
     private static final String LINK_NOTICE = "href=\"";
-    private static final String IS_LINK = "youtube.com/";
+    private static final String IS_CHANNEL_LINK = "youtube.com/channel";
 
     private static String channel_link_filter(SimpleReader in) 
     {
@@ -36,7 +36,7 @@ public class Channel_Link {
                         result += chr;
                         chr = in.read();
                     }
-                    if (result.contains(IS_LINK)) {
+                    if (result.contains(IS_CHANNEL_LINK)) {
                         in.read(); // '>'
                         return result;
                     }

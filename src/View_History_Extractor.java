@@ -1,199 +1,136 @@
-import java.text.DateFormat;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Locale;
-
 import components.queue.Queue;
 import components.queue.Queue1L;
+import components.sequence.Sequence;
+import components.sequence.Sequence1L;
 import components.simplereader.SimpleReader;
 import components.simplereader.SimpleReader1L;
 import components.simplewriter.SimpleWriter;
 import components.simplewriter.SimpleWriter1L;
 
 /**
- * Extract youtube links, titles, channel links, channel names, and viewing time from data.
- * 
- * This version excludes post and music video histories. You can modify this feature in dataCleaning method.
+ * Copy of extractor file; created to revise(clean) code while doing the same task
  *
  * @author Haechan Jung
  */
-// TODO: Appropriate year and time zone must be defined before execution.
-public final class View_History_Extractor {
+public final class View_history_extractor {
 
     /**
      * No argument constructor--private to prevent instantiation.
      */
-    private View_History_Extractor() {
+    private View_history_extractor() {
     }
+    /*
+     * Debugging purpose only
+     */
+    private static final boolean DEBUG = false; 
 
-    private static final DateFormat oldFormat = new SimpleDateFormat(
-        "yyyy. MM. dd. a hh:mm:ss z", Locale.KOREA);
-    private static final SimpleDateFormat newFormat = new SimpleDateFormat(
-        "yyyy-MM-dd HH:mm:ss");
+    /*
+     * index for sequence
+     */
+    private static final int VID_LINK = 0;
+    private static final int VID_TITLE = 1;
+    private static final int CHN_LINK = 2;
+    private static final int CHN_NAME = 3;
+    private static final int VIW_TIME = 4;
 
-    private static String timeFilter(SimpleReader in) {
-        boolean done = false;
+    public static String data_adjustment(String original)
+    {
+        String corrected = original;
+
         
-        String result = "";
-        while (!in.atEOS() && !done) {
-            String time;
-            char chr = in.read();
-            if (chr == '2') {
-                time = "2" + in.read() + in.read() + in.read() + in.read() + in.read();
-                /*
-                 * ===================NEED TO BE MODIFIED IF NECESSARY===================
-                 */
-                if (time.equals("2024. ") || time.equals("2025. ")) { 
-                    while (!time.contains("KST")) {
-                        time += in.read();
-                    }
-                    /*
-                     * Check if following is </div>
-                     */
-                    String div = "";
-                    final int six = 6;
-                    for (int i = 0; i < six; i++) {
-                        div += in.read();
-                    }
-                    if (div.equals("</div>")) {
-                        Date date;
-                        try {
-                            date = oldFormat.parse(time);
-                            result = newFormat.format(date);
-                        } catch (ParseException e) {
-                            e.printStackTrace();
-                        }
-                        done = true;
-                    }
-
-                }
-            }
+        String target = "SPECIFIC_TITLE";
+        if (DEBUG) // =====================================
+        {
+            if (corrected.contains(target))
+            {
+                System.out.println("(DEBUG) title before correction: ");
+                System.out.println(corrected + "===========\n");
+            } 
         }
-        if (done) {
-            return result;
+        // To avoid wrong separation while making csv
+        corrected = corrected.replace(System.lineSeparator(),  " ");
+        corrected = corrected.replace("\n", " ");
+        corrected = corrected.replace("\r", " ");
+        corrected = corrected.replace("\t", " ");
+        corrected = corrected.replace(',', '_');  
+        corrected = corrected.replace('/', '\\');
+        
+        if (DEBUG) // =====================================
+        {
+            if (corrected.contains(target))
+            {   
+                System.out.println("(DEBUG) title after correction: ======================");
+                System.out.println(corrected);
+            } 
         }
-        return "";
+        return corrected;
     }
 
-    private static String linkFilter(SimpleReader in) {
-        String result = "";
-        boolean found = false;
-        while (!in.atEOS() && !found) {
-            char chr = in.read();
-            if (chr == 'h') {
-                result = "h";
-                for (int i = 0; i < 5 && !in.atEOS(); i++) { // 'href="'
-                    result += in.read();
-                }
-                if (result.equals("href=\"")) {
-                    result = "";
-                    chr = in.read();
-                    while (chr != '"') {
-                        result += chr;
-                        chr = in.read();
-                    }
-                    if (result.contains("youtube.com/")) {
-                        found = true;
-                        
-                    }
-                }
-            }
-        }
-        if (found) {
-            in.read(); // '>'
-            return result;
-        }
-        return "";
-    }
-
-    private static String titleFilter(SimpleReader in) {
-        String result = "";
-        char chr = in.read();
-        while (chr != '<') {
-            result += chr;
-            chr = in.read();
-        }
-        // In case when title has '<'
-        String separator = "<" + in.read() + in.read() + in.read(); // '</a>'
-        if (!separator.equals("</a>")) {
-            result += separator;
-            result += titleFilter(in);
-        }
-        return result;
-    }
-
-    private static void dataCleaning(SimpleReader in, Queue<String> link,
-            Queue<String> title, Queue<String> channelLink,
-            Queue<String> channelName, Queue<String> time) {
-
-        while (!in.atEOS()) {
-            String result = linkFilter(in);
-            if (result.contains("youtube.com/post/") ||     // Exclude post history
-                result.contains("music.youtube.com/") ) {   // Exclud music video history
-                timeFilter(in);
-                continue;
-            }
-            if (result.length() < 1) {
-                break;
-            }
-            link.enqueue(result);
-            result = titleFilter(in);
-            if (result.contains("youtube.com/watch")) { // if deleted video 
-                title.enqueue("deleted");
-                channelLink.enqueue("Unknown");
-                channelName.enqueue("Unknown");
-                result = timeFilter(in);
-                if (result.length() < 1) {
+    private static void extract_view_history(SimpleReader in, Sequence<Queue<String>> view_history) 
+    {
+        // break if end of input stream
+        while (!in.atEOS())
+        {
+            if (DEBUG) // ==========================================================================DEBUG
+            {
+                if (!Debugging.check_length(view_history))
+                {
                     break;
                 }
-                time.enqueue(result);
-                continue;
             }
-            if (result.length() < 1) {
-                break;
-            }
-            result = result.replace(',', '_');  // To avoid wrong separation while making csv
-            result = result.replace('/', '\\');
-            title.enqueue(result);
-            result = linkFilter(in);
-            if (result.length() < 1) {
-                break;
-            }
-            result = result.replace(',', '_');
-            result = result.replace('/', '\\');
-            channelLink.enqueue(result);
-            result = titleFilter(in);
-            if (result.length() < 1) {
-                break;
-            }
-            result = result.replace(',', '_');
-            result = result.replace('/', '\\');
-            channelName.enqueue(result);
-            result = timeFilter(in);
-            if (result.length() < 1) {
-                break;
-            }
-            time.enqueue(result);
+
+            if (!Video_Link.extract_video_link(in, view_history.entry(VID_LINK)))     continue;
+            if (!Video_Title.extract_video_title(in, view_history))                   continue;
+            if (!Channel_Link.extract_channel_link(in, view_history.entry(CHN_LINK))) continue;
+            if (!Channel_Name.extract_channel_name(in, view_history.entry(CHN_NAME))) continue;
+            if (!View_Time.extract_viewing_time(in, view_history.entry(VIW_TIME)))    continue;
         }
+    }
+
+    private static void make_csv(SimpleWriter out, Sequence<Queue<String>> view_history) 
+    {
+        assert view_history.entry(VID_LINK).length() == view_history.entry(VIW_TIME).length() : 
+                "Violation of: two queues have correponding data";
+
+        // column names
+        out.println("video_link,video_title,channel_link,channel_name,viewing_time");
+        
+        if (DEBUG) // ====================================================================DEBUG
+        {
+            System.out.println("(DEBUG) Video_Link: " + view_history.entry(VID_LINK).length());
+            System.out.println("(DEBUG) Video_Title: " + view_history.entry(VID_TITLE).length());
+            System.out.println("(DEBUG) Channel_link: " + view_history.entry(CHN_LINK).length());
+            System.out.println("(DEBUG) Channel_Name: " + view_history.entry(CHN_NAME).length());
+            System.out.println("(DEBUG) Viewing_Time: " + view_history.entry(VIW_TIME).length());
+        }
+        
+        while (view_history.entry(VID_LINK).length() > 0) 
+        {
+            out.print(view_history.entry(VID_LINK).dequeue() + ",");
+            out.print(view_history.entry(VID_TITLE).dequeue() + ",");
+            out.print(view_history.entry(CHN_LINK).dequeue() + ",");
+            out.print(view_history.entry(CHN_NAME).dequeue() + ",");
+            out.println(view_history.entry(VIW_TIME).dequeue());
+        }
+
+        if (DEBUG) System.out.println("(DEBUG) FINISHED");
 
     }
 
-    private static void dataFraming(SimpleWriter out, Queue<String> link,
-            Queue<String> title, Queue<String> channelLink,
-            Queue<String> channelName, Queue<String> time) {
-        assert link.length() == time
-                .length() : "Violation of: two queues have correponding data";
-
-        out.println("link,title,channel_link,channel_name,time"); // column names
-        while (link.length() > 0) {
-            out.print(link.dequeue() + ",");
-            out.print(title.dequeue() + ",");
-            out.print(channelLink.dequeue() + ",");
-            out.print(channelName.dequeue() + ",");
-            out.println(time.dequeue());
-        }
-
+    private static void init_queues(Sequence<Queue<String>> view_history)
+    {
+        /*
+         * 0: youtube video link
+         * 1: youtube video title
+         * 2: youtube channel name
+         * 3: youtube channel name
+         * 4: viewing time
+         */
+        final int FIVE = 5;
+        for (int i = 0; i < FIVE; i++)
+        {
+            view_history.add(i, new Queue1L<String>());
+        }   
     }
 
     /**
@@ -202,24 +139,24 @@ public final class View_History_Extractor {
      * @param args
      *            the command line arguments
      */
-    public static void main(String[] args) {
+    public static void main(String[] args) 
+    {
         /*
          * ====================NEED TO BE REPLACED====================
          */
-        SimpleReader in = new SimpleReader1L("data/시청 기록.html");
-        Queue<String> link = new Queue1L<>();           // youtube video link
-        Queue<String> title = new Queue1L<>();          // youtube video title
-        Queue<String> channelLink = new Queue1L<>();    // youtube channel name
-        Queue<String> channelName = new Queue1L<>();    // youtube channel name
-        Queue<String> time = new Queue1L<>();           // viewing time
+        SimpleReader in = new SimpleReader1L("data/시청 기록.html"); 
+        
+        // initialization of data storage
+        Sequence<Queue<String>> view_history = new Sequence1L();
+        init_queues(view_history);
 
-        dataCleaning(in, link, title, channelLink, channelName, time); // extract youtube data
+        extract_view_history(in, view_history); // extract youtube data
         /*
          * ====================NEED TO BE REPLACED====================
          */
-        String folder = "output";
-        SimpleWriter out = new SimpleWriter1L(folder + "/youtube_view_history.csv");
-        dataFraming(out, link, title, channelLink, channelName, time); // print data into text file
+        String folder = "output"; 
+        SimpleWriter out = new SimpleWriter1L(folder + "/test1111.csv");
+        make_csv(out, view_history); // print data into text file
         /*
          * Close input and output streams
          */
