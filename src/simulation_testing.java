@@ -19,12 +19,12 @@ import components.simplewriter.SimpleWriter1L;
  * @author Haechan Jung
  */
 // TODO: Appropriate year and time zone must be defined before execution.
-public final class aa_hello {
+public final class simulation_testing {
 
     /**
      * No argument constructor--private to prevent instantiation.
      */
-    private aa_hello() {
+    private simulation_testing() {
     }
 
     

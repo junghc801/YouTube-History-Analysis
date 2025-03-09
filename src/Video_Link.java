@@ -64,7 +64,7 @@ public class Video_Link {
         boolean end_of_stream = vid_link.equals(FAIL_STRING);
         if (end_of_stream) return false; // if everything read;
         // if not yet
-        vid_link = Extractor_Revision.data_adjustment(vid_link);
+        vid_link = Viewhistory_extractor.data_adjustment(vid_link);
         link.enqueue(vid_link);          
         return true;
     }

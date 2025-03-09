@@ -12,12 +12,12 @@ import components.simplewriter.SimpleWriter1L;
  *
  * @author Haechan Jung
  */
-public final class View_history_extractor {
+public final class Viewhistory_extractor {
 
     /**
      * No argument constructor--private to prevent instantiation.
      */
-    private View_history_extractor() {
+    private Viewhistory_extractor() {
     }
     /*
      * Debugging purpose only

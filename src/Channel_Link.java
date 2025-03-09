@@ -61,7 +61,7 @@ public class Channel_Link {
         boolean end_of_stream = chnl_link.equals(FAIL_STRING);
         if (end_of_stream) return false; // if everything read;
         // if not yet
-        chnl_link = Extractor_Revision.data_adjustment(chnl_link);
+        chnl_link = Viewhistory_extractor.data_adjustment(chnl_link);
         link.enqueue(chnl_link);          
         return true;
     }
