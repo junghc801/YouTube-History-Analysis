@@ -31,40 +31,75 @@ library(DBI)
 library(RSQLite)
 ```
 ```{r message = FALSE, warning=FALSE}
-view_history = read_csv("C:/Users/user/OneDrive/바탕 화면/프로젝트/YouTube-View-History/datasets/YouTube_View_History_Modified.csv", locale = locale(encoding = "EUC-KR"), col_types = cols(your_time_column = col_datetime("%Y-%m-%d %H:%M:%S")))
+view_history = read_csv("C:/Users/user/OneDrive/바탕 화면/프로젝트/youtube_view_history_data_analysis/youtube_view_history.csv")
+summary(view_history)
 view_history
 ```
+```{r}
+# check if there is a NULL
+sum(is.na(view_history$video_link))
+sum(is.na(view_history$video_title))
+sum(is.na(view_history$channel_link))
+sum(is.na(view_history$channel_name))
+sum(is.na(view_history$viewing_time))
+```
+```{r}
+# convert viewing_time to characters
+view_history$viewing_time <- format(view_history$viewing_time, "%Y-%m-%d %H:%M:%S")
+```
+
 
 ```{r}
+# SQLite에서 문자열 형식의 날짜 데이터를 날짜/시간 타입으로 변환
+# 예시: viewing_time 컬럼이 문제의 컬럼이라고 가정
+# SELECT strftime('%Y-%m-%d', viewing_time) FROM view_history;
 conn = src_memdb()
-
 conn_isolated = conn$con
 copy_to(conn, view_history, overwrite = TRUE)
-# 가장 많은 영상을 본 채널 목록.csv
-df = tbl(conn, sql("SELECT channel_name
-                    , COUNT(DISTINCT video_link) AS cnts
-                    , channel_link
-               FROM view_history
-               GROUP BY channel_link
-               ORDER BY cnts DESC"))
-# check if null value exists
-sum(is.na(view_history$viewing_time)) 
-write.csv(df, "C:/Users/user/OneDrive/바탕 화면/프로젝트/YouTube-View-History/datasets/YouTube_Channels.csv")
+view_history_date = tbl(conn, sql(
+"SELECT *
+     , strftime('%Y', viewing_time) AS year
+     , strftime('%m', viewing_time) AS month
+     , strftime('%d', viewing_time) AS _date
+     , CASE strftime('%w', viewing_time) 
+          WHEN '0' THEN 'Sun'
+          WHEN '1' THEN 'Mon'
+          WHEN '2' THEN 'Tue'
+          WHEN '3' THEN 'Wed'
+          WHEN '4' THEN 'Thu'
+          WHEN '5' THEN 'Fri'
+          WHEN '6' THEN 'Sat'
+       END AS day
+ FROM view_history
+ ORDER BY viewing_time"))
+view_history_date
+conn_date = src_memdb()
+conn_isolated.date = conn_date$con
+copy_to(conn_date, view_history_date, overwrite = TRUE)
+```
+```{sql connection=conn_isolated}
+SELECT *
+FROM view_history
 ```
 ```{r}
-# print if it is NULL value
-for (i in 1:length(view_history$video_link)) {
-  if (is.na(view_history$viewing_time[i])) {
-    print(view_history$video_link[i])
-    print(view_history$video_title[i])
-    print(view_history$channel_link[i])
-    print(view_history$channel_name[i])
-    print(view_history$viewing_time[i])
-    print("====================================")
-  }
-}
-```
+# most watched channels
+df_group_channels = tbl(conn, sql("SELECT channel_name
+                                        , COUNT(DISTINCT video_link) AS cnts
+                                        , channel_link
+                                   FROM view_history
+                                   GROUP BY channel_link
+                                   ORDER BY cnts DESC"))
 
+# excluding posts and music videos; only video view history
+df_without_posts_n_musics = tbl(conn, sql("SELECT *
+                                           FROM view_history
+                                           WHERE video_link NOT LIKE '%music.youtube.com%' 
+                                             AND video_link NOT LIKE '%youtube.com\\post%'"))
+
+# make csv files
+write.csv(df_group_channels, "C:/Users/user/OneDrive/바탕 화면/프로젝트/youtube_view_history_data_analysis/viewhistory_BY_Channels.csv")
+write.csv(df_without_posts_n_musics, "C:/Users/user/OneDrive/바탕 화면/프로젝트/youtube_view_history_data_analysis/viewhistory_only_videos.csv")
+```
 
 ```{sql connection=conn_isolated}
 -- all_cnts = 전체 동영상 수
@@ -73,25 +108,59 @@ SELECT COUNT(video_link) AS all_cnts
     ,  COUNT(DISTINCT video_link) as all_distinct_cnts
 FROM view_history
 ```
+```{sql connection = conn_isolated}
+-- Most repeatedly watched videos
+WITH viw_cnts AS
+(
+SELECT video_title, COUNT(DISTINCT viewing_time) AS play_cnts, video_link
+FROM view_history
+WHERE video_link NOT LIKE '%music.youtube.com%' AND video_link NOT LIKE '%youtube.com\\post%'
+GROUP BY video_link
+ORDER BY COUNT(DISTINCT viewing_time) DESC
+),
+viw_cnts_1to10 AS
+(
+SELECT COUNT(*) AS total
+     , COUNT(CASE WHEN play_cnts > 1 THEN video_title END) AS more_than_1
+     , COUNT(CASE WHEN play_cnts > 2 THEN video_title END) AS more_than_2
+     , COUNT(CASE WHEN play_cnts > 3 THEN video_title END) AS more_than_3
+     , COUNT(CASE WHEN play_cnts > 4 THEN video_title END) AS more_than_4
+     , COUNT(CASE WHEN play_cnts > 5 THEN video_title END) AS more_than_5
+     , COUNT(CASE WHEN play_cnts > 6 THEN video_title END) AS more_than_6
+     , COUNT(CASE WHEN play_cnts > 7 THEN video_title END) AS more_than_7
+     , COUNT(CASE WHEN play_cnts > 8 THEN video_title END) AS more_than_8
+     , COUNT(CASE WHEN play_cnts > 9 THEN video_title END) AS more_than_9
+     , COUNT(CASE WHEN play_cnts > 10 THEN video_title END) AS more_than_10
+FROM viw_cnts
+)
+
+-- proportion of repeatedly watched videos
+SELECT CONCAT(ROUND(more_than_1 * 100.0 / total, 2), '%') AS more_than_1_pct
+     , CONCAT(ROUND(more_than_2 * 100.0 / total, 2), '%') AS more_than_2_pct
+     , CONCAT(ROUND(more_than_3 * 100.0 / total, 2), '%') AS more_than_3_pct
+     , CONCAT(ROUND(more_than_4 * 100.0 / total, 2), '%') AS more_than_4_pct
+     , CONCAT(ROUND(more_than_5 * 100.0 / total, 2), '%') AS more_than_5_pct
+     , CONCAT(ROUND(more_than_6 * 100.0 / total, 2), '%') AS more_than_6_pct
+     , CONCAT(ROUND(more_than_7 * 100.0 / total, 2), '%') AS more_than_7_pct
+     , CONCAT(ROUND(more_than_8 * 100.0 / total, 2), '%') AS more_than_8_pct
+     , CONCAT(ROUND(more_than_9 * 100.0 / total, 2), '%') AS more_than_9_pct
+     , CONCAT(ROUND(more_than_10 * 100.0 / total, 2), '%') AS more_than_10_pct
+FROM viw_cnts_1to10;
+``` 
 
 ```{sql connection=conn_isolated}
--- 
 SELECT channel_name
      , COUNT(DISTINCT video_link) as cnts
      , channel_link
 FROM view_history
-WHERE channel_name IS NOT 'unknown' -- 영상 제거 or 비공개 영상의 경우 제외외
+-- when watched video is deleted or disclosed by the channel
+WHERE channel_name IS NOT 'Deleted_or_Disclosed' 
 GROUP BY channel_link
 ORDER BY cnts DESC
 ```
-```{sql connection=conn_isolated}
-SELECT *
-FROM view_history
-WHERE viewing_time >= '2024-12-21 23:59:59'
-LIMIT 300
-```
+
 
 ```{r}
-summary(view_history)
+boxplot(view_history$viewing_time, view_history$video_link)
 ```
 
