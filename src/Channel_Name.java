@@ -41,7 +41,7 @@ public class Channel_Name {
         String name = channel_name_filter(in);
         boolean end_of_stream = name.equals(FAIL_STRING);
         if (end_of_stream) return false; // if everything read
-        name = Extractor_Revision.data_adjustment(name);
+        name = Viewhistory_extractor.data_adjustment(name);
         channel_name.enqueue(name);
         return true;
     }

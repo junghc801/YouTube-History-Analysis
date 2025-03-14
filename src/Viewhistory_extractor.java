@@ -1,3 +1,11 @@
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Scanner;
+
 import components.queue.Queue;
 import components.queue.Queue1L;
 import components.sequence.Sequence;
@@ -133,6 +141,41 @@ public final class Viewhistory_extractor {
         }   
     }
 
+    private static String read_input()
+    {
+        Scanner scanner = new Scanner(System.in);
+        String filePath = "";
+        try {
+            filePath = scanner.nextLine();
+            Path path = Paths.get(filePath);
+
+            // Check if file exists
+            if (!Files.exists(path)) {
+                throw new NoSuchFileException("File not found: " + filePath);
+            }
+
+            // Read file content or perform other operations
+            String content = new String(Files.readAllBytes(path));
+            System.out.println("File content: " + content);
+
+        } catch (NoSuchFileException e) {
+            System.err.println("Error: File not found. " + e.getMessage());
+            System.exit(1);
+        } catch (InvalidPathException e) {
+            System.err.println("Error: Invalid file path. " + e.getMessage());
+            System.exit(1);
+        } catch (IOException e) {
+            System.err.println("Error: An I/O error occurred. " + e.getMessage());
+            System.exit(1);
+        } catch (Exception e) {
+            System.err.println("An unknown error occurred. " + e.getMessage());
+            System.exit(1);
+        } finally {
+            scanner.close();
+        }
+        return filePath;
+    }
+
     /**
      * Main method.
      *
@@ -141,21 +184,23 @@ public final class Viewhistory_extractor {
      */
     public static void main(String[] args) 
     {
-        /*
-         * ====================NEED TO BE REPLACED====================
-         */
-        SimpleReader in = new SimpleReader1L("data/시청 기록.html"); 
-        
+        System.out.print("Input file directory(where the file locates): ");
+        String input_dir = read_input();
+
+        System.out.print("Output file directory(where csv file will locate): ");
+        String output_dir = read_input();
+
+        // input_dir = "data/시청 기록.html";
+        // output_dir = "output";
+        SimpleReader in = new SimpleReader1L(input_dir); 
+
         // initialization of data storage
-        Sequence<Queue<String>> view_history = new Sequence1L();
+        Sequence<Queue<String>> view_history = new Sequence1L<Queue<String>>();
         init_queues(view_history);
 
         extract_view_history(in, view_history); // extract youtube data
-        /*
-         * ====================NEED TO BE REPLACED====================
-         */
-        String folder = "output"; 
-        SimpleWriter out = new SimpleWriter1L(folder + "/test1111.csv");
+
+        SimpleWriter out = new SimpleWriter1L(output_dir + "/youtube_view_history.csv");
         make_csv(out, view_history); // print data into text file
         /*
          * Close input and output streams
