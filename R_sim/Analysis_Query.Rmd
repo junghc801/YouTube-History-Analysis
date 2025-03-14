@@ -45,22 +45,44 @@ sum(is.na(view_history$viewing_time))
 ```
 ```{r}
 # convert viewing_time to characters
-view_history$viewing_time <- format(view_history$viewing_time, "%Y-%m-%d %H:%M:%S")
+view_history$viewing_time_str <- format(view_history$viewing_time, "%Y-%m-%d %H:%M:%S")
 ```
 
 
 ```{r}
-# SQLite에서 문자열 형식의 날짜 데이터를 날짜/시간 타입으로 변환
-# 예시: viewing_time 컬럼이 문제의 컬럼이라고 가정
-# SELECT strftime('%Y-%m-%d', viewing_time) FROM view_history;
 conn = src_memdb()
 conn_isolated = conn$con
 copy_to(conn, view_history, overwrite = TRUE)
-view_history_date = tbl(conn, sql(
-"SELECT *
-     , strftime('%Y', viewing_time) AS year
-     , strftime('%m', viewing_time) AS month
-     , strftime('%d', viewing_time) AS _date
+```
+```{sql connection=conn_isolated}
+WITH time_change AS
+( -- Standard time zone modification
+SELECT strftime('%s', '2024-08-16 10:20:00') AS Kra_to_US -- 2024/08/16 10:20 KST Korea -> USA
+     , strftime('%s', '2024-12-14 16:30:00') AS US_to_Kra -- 2024/12/14 16:30 KST USA -> Korea
+     , strftime('%s', '2024-11-03 16:00:00') AS dst       -- 2024/11/03 16:00 KST daylight saving time
+),
+
+view_history_adj AS
+(
+SELECT *,
+       CASE
+          WHEN viewing_time >= kra_to_US 
+           AND viewing_time < dst THEN 
+           strftime('%Y-%m-%d %H:%M:%S', viewing_time, '-14 hours')
+          WHEN viewing_time >= dst
+           AND viewing_time < US_to_Kra THEN 
+           strftime('%Y-%m-%d %H:%M:%S', viewing_time, '-13 hours')
+          ELSE viewing_time
+       END AS viewing_time_adj
+FROM view_history
+  JOIN time_change
+),
+view_history_date AS
+(
+SELECT *
+     , strftime('%Y', viewing_time) AS year_og
+     , strftime('%m', viewing_time) AS month_og
+     , strftime('%d', viewing_time) AS _date_og
      , CASE strftime('%w', viewing_time) 
           WHEN '0' THEN 'Sun'
           WHEN '1' THEN 'Mon'
@@ -69,17 +91,19 @@ view_history_date = tbl(conn, sql(
           WHEN '4' THEN 'Thu'
           WHEN '5' THEN 'Fri'
           WHEN '6' THEN 'Sat'
-       END AS day
- FROM view_history
- ORDER BY viewing_time"))
-view_history_date
-conn_date = src_memdb()
-conn_isolated.date = conn_date$con
-copy_to(conn_date, view_history_date, overwrite = TRUE)
-```
-```{sql connection=conn_isolated}
-SELECT *
+       END AS day_og
+     , strftime('%H', viewing_time) AS hour_og
+     , strftime('%M', viewing_time) AS minute_og
+     , strftime('%S', viewing_time) AS second_og
 FROM view_history
+)
+
+SELECT *
+FROM view_history_adj
+
+
+
+
 ```
 ```{r}
 # most watched channels
@@ -159,8 +183,4 @@ GROUP BY channel_link
 ORDER BY cnts DESC
 ```
 
-
-```{r}
-boxplot(view_history$viewing_time, view_history$video_link)
-```
 

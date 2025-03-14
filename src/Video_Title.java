@@ -71,7 +71,7 @@ public class Video_Title {
             // upper limit can be adjusted
             vid_title = vid_title.substring(0, UPPER_LIMIT); 
         }
-        vid_title = View_history_extractor.data_adjustment(vid_title);
+        vid_title = Viewhistory_extractor.data_adjustment(vid_title);
         view_history.entry(VID_TITLE).enqueue(vid_title);       
         return true;
     }
